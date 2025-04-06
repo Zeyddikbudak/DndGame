@@ -10,13 +10,11 @@ from rest_framework.generics import ListAPIView
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 import random
+from django.core.cache import cache
 
 from .models import Character, Race, Class, CharacterTemplate
 from lobbies.models import Lobby, LobbyPlayer
 from .serializers import CharacterTemplateSerializer, RaceSerializer, ClassSerializer, CharacterSerializer
-
-# Global battle state (demo amaçlı; production için merkezi store (ör. Redis) kullanın)
-BATTLE_STATE = {}
 
 class CsrfExemptSessionAuthentication(SessionAuthentication):
     def enforce_csrf(self, request):
@@ -64,10 +62,6 @@ class CharacterViewSet(viewsets.ModelViewSet):
 
 # Initiative order hesaplaması
 class InitiateCombatView(APIView):
-    """
-    GM savaşı başlattığında, grid’deki karakterlerin initiative sırasını hesaplar.
-    İstek payload'unda lobby_id, character_ids, placements ve available_characters gönderilmelidir.
-    """
     authentication_classes = [CsrfExemptSessionAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -76,8 +70,10 @@ class InitiateCombatView(APIView):
         character_ids = request.data.get("character_ids", [])
         placements = request.data.get("placements", {})
         available_characters = request.data.get("available_characters", [])
+        
         if not lobby_id or not character_ids:
             return Response({"error": "lobby_id ve character_ids gereklidir."}, status=status.HTTP_400_BAD_REQUEST)
+        
         combatants = Character.objects.filter(id__in=character_ids)
         initiative_list = []
         for character in combatants:
@@ -88,26 +84,43 @@ class InitiateCombatView(APIView):
                 "initiative": roll
             })
         initiative_list.sort(key=lambda x: x["initiative"], reverse=True)
-        BATTLE_STATE[str(lobby_id)] = {
+        
+        gridSize = 20
+        total_cells = gridSize * gridSize
+        if not placements:
+            default_cells = [i for i in range(0, total_cells, 10)]
+            placements = {}
+            for idx, entry in enumerate(initiative_list):
+                cell = default_cells[idx % len(default_cells)]
+                character = combatants.get(id=entry["character_id"])
+                placements[str(cell)] = {
+                    "id": character.id,
+                    "name": character.name,
+                    "player_id": character.player_id,
+                    "lobby_id": character.lobby_id,
+                    "dexterity": getattr(character, 'dexterity', 10),
+                }
+        
+        battle_state = {
             "initiative_order": initiative_list,
             "placements": placements,
             "available_characters": available_characters,
             "current_turn_index": 0,
             "chat_log": []
         }
+        cache.set(f"battle_state_{lobby_id}", battle_state)
+        
         return Response({
             "message": "Initiative order oluşturuldu.",
-            "initiative_order": initiative_list
+            "initiative_order": initiative_list,
+            "placements": placements
         })
+    
+    
+
+
 
 class MeleeAttackView(APIView):
-    """
-    Yakın Dövüş Saldırısı endpoint'i:
-    Saldırıyı yapabilmek için saldırgan ile hedefin bulunduğu kareler arasında
-    sadece bitişik (aynı satırda ve sütun farkı 1 ya da aynı sütunda ve satır farkı 1) mesafe olmalıdır.
-    Saldırı, 1d6 + strength bonusu üzerinden hesaplanır.
-    İstek payload'unda attacker_id, target_id ve lobby_id gönderilmelidir.
-    """
     authentication_classes = [CsrfExemptSessionAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -122,17 +135,13 @@ class MeleeAttackView(APIView):
         attacker = get_object_or_404(Character, id=attacker_id)
         target = get_object_or_404(Character, id=target_id)
         
-        # Grid boyutu: 20x20
         gridSize = 20
-        
-        # Global battle state'den placements bilgisini alalım
-        battle_state = BATTLE_STATE.get(str(lobby_id))
+        battle_state = cache.get(f"battle_state_{lobby_id}")
         if not battle_state or "placements" not in battle_state:
             return Response({"error": "Battle state bulunamadı."},
                             status=status.HTTP_400_BAD_REQUEST)
         placements = battle_state["placements"]
         
-        # Saldırgan ve hedefin hangi hücrelerde yer aldığını tespit edelim
         attacker_cell = None
         target_cell = None
         for key, value in placements.items():
@@ -145,17 +154,14 @@ class MeleeAttackView(APIView):
             return Response({"error": "Saldırgan veya hedefin konumu bulunamadı."},
                             status=status.HTTP_400_BAD_REQUEST)
         
-        # Hücre konumlarını satır ve sütunlara ayıralım
         attacker_row, attacker_col = divmod(attacker_cell, gridSize)
         target_row, target_col = divmod(target_cell, gridSize)
         
-        # Sadece bitişik hücreler (aynı satırda ve sütun farkı 1 ya da aynı sütunda ve satır farkı 1) saldırıya izin verilir.
         if not ((attacker_row == target_row and abs(attacker_col - target_col) == 1) or 
                 (attacker_col == target_col and abs(attacker_row - target_row) == 1)):
             return Response({"error": "Hedef, saldırıya uygun mesafede değil. Yakın dövüş saldırısı yalnızca bitişik karelere yapılabilir."},
                             status=status.HTTP_400_BAD_REQUEST)
         
-        # Mesafe uygunsa hasarı hesapla (örneğin normal_attack_damage() metodu üzerinden)
         damage = attacker.normal_attack_damage()
         target.hp = max(0, target.hp - damage)
         target.save()
@@ -164,9 +170,8 @@ class MeleeAttackView(APIView):
         chat_log = battle_state.get("chat_log", [])
         chat_log.append(new_message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
-
-        # Güncellemeyi tüm oyunculara yayınla
+        cache.set(f"battle_state_{lobby_id}", battle_state)
+        
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"lobby_{lobby_id}",
@@ -183,14 +188,7 @@ class MeleeAttackView(APIView):
             "chat_log": chat_log
         })
 
-
 class RangedAttackView(APIView):
-    """
-    Ranged (Dexterity) Attack endpoint:
-    Bu saldırı, saldırgan ile hedef arasındaki mesafenin 5x5 birim karelik alanda olmasına bağlıdır.
-    Hasar, 1d6 + saldırganın dexterity değeri ile hesaplanır.
-    İstek payload’unda attacker_id, target_id ve lobby_id gönderilmelidir.
-    """
     authentication_classes = [CsrfExemptSessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -204,16 +202,13 @@ class RangedAttackView(APIView):
         attacker = get_object_or_404(Character, id=attacker_id)
         target = get_object_or_404(Character, id=target_id)
 
-        gridSize = 20  # 20x20 grid
-
-        # Global battle state'den placements bilgisini alıyoruz
-        battle_state = BATTLE_STATE.get(str(lobby_id))
+        gridSize = 20
+        battle_state = cache.get(f"battle_state_{lobby_id}")
         if not battle_state or "placements" not in battle_state:
             return Response({"error": "Battle state bulunamadı."},
                             status=status.HTTP_400_BAD_REQUEST)
         placements = battle_state["placements"]
 
-        # Saldırgan ve hedefin hangi hücrelerde yer aldığını tespit ediyoruz.
         attacker_cell = None
         target_cell = None
         for key, value in placements.items():
@@ -226,19 +221,17 @@ class RangedAttackView(APIView):
             return Response({"error": "Saldırgan veya hedefin konumu bulunamadı."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Hücre konumlarını satır ve sütunlara ayırıyoruz.
         attacker_row, attacker_col = divmod(attacker_cell, gridSize)
         target_row, target_col = divmod(target_cell, gridSize)
 
-        # Saldırının 5x5 alan içinde olup olmadığını kontrol ediyoruz.
-        # Yani saldırganın bulunduğu hücreye göre, satır ve sütun farkı en fazla 2 olmalıdır.
         if not (abs(attacker_row - target_row) <= 2 and abs(attacker_col - target_col) <= 2):
             return Response({"error": "Hedef, saldırıya uygun mesafede değil. Ranged saldırı 5x5 alanda yapılabilir."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Hasarı hesapla: 1d6 + attacker.dexterity
         roll = random.randint(1, 6)
-        damage = roll + (attacker.dexterity if hasattr(attacker, 'dexterity') else 0)
+        # Dexterity bonusu: (dexterity - 10) // 2, minimum 0
+        dex_bonus = max((attacker.dexterity - 10) // 2, 0) if hasattr(attacker, 'dexterity') else 0
+        damage = roll + dex_bonus
         target.hp = max(0, target.hp - damage)
         target.save()
 
@@ -246,9 +239,8 @@ class RangedAttackView(APIView):
         chat_log = battle_state.get("chat_log", [])
         chat_log.append(new_message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
-        # Güncellenen battle state'i tüm oyunculara yayınla.
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"lobby_{lobby_id}",
@@ -265,13 +257,7 @@ class RangedAttackView(APIView):
             "chat_log": chat_log
         })
     
-# EndTurn endpoint: Sadece GM güncellemesi yapar.
 class EndTurnView(APIView):
-    """
-    Oyuncu "Turn End" butonuna bastığında çağrılır.
-    Eğer GM tarafından gönderildiyse, mevcut turdaki karakter global battle state'den çıkarılır
-    (HP 0 değilse kuyruğun sonuna eklenir, HP 0 ise çıkarılır) ve ölen karakterlerin grid'den kaldırılması sağlanır.
-    """
     authentication_classes = [CsrfExemptSessionAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -280,7 +266,7 @@ class EndTurnView(APIView):
         if not lobby_id:
             return Response({"error": "lobby_id gereklidir."}, status=status.HTTP_400_BAD_REQUEST)
         lobby = get_object_or_404(Lobby, lobby_id=lobby_id)
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         initiative_order = battle_state.get("initiative_order", [])
         current_turn_index = battle_state.get("current_turn_index", 0)
         if not initiative_order:
@@ -306,8 +292,7 @@ class EndTurnView(APIView):
         battle_state["initiative_order"] = new_initiative
         battle_state["current_turn_index"] = 0
         battle_state["placements"] = placements
-        BATTLE_STATE[str(lobby_id)] = battle_state
-
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"lobby_{lobby_id}",
@@ -322,14 +307,43 @@ class EndTurnView(APIView):
             "initiative_order": new_initiative,
             "placements": placements
         })
+    
 
-# BattleState endpoint: Global battle state'i döner.
+class EndBattleView(APIView):
+    authentication_classes = [CsrfExemptSessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, format=None):
+        lobby_id = request.data.get("lobby_id")
+        if not lobby_id:
+            return Response({"error": "lobby_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Cache'deki battle state'i alıyoruz veya boş bir state oluşturuyoruz.
+        battle_state = cache.get(f"battle_state_{lobby_id}", {
+            "initiative_order": [],
+            "placements": {},
+            "available_characters": [],
+            "current_turn_index": 0,
+            "chat_log": []
+        })
+        # Battle state'i battleEnd durumuna çeviriyoruz:
+        battle_state["battle_end"] = True
+        cache.set(f"battle_state_{lobby_id}", battle_state)
+        
+        # Kanal katmanı üzerinden tüm oyunculara broadcast ediyoruz:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"lobby_{lobby_id}",
+            {
+                'type': 'game_message',
+                'message': battle_state
+            }
+        )
+        return Response({"message": "Battle ended successfully", "battle_state": battle_state}, status=status.HTTP_200_OK)
+
 class BattleStateView(APIView):
-    """
-    Global BATTLE_STATE içerisindeki battle state bilgisini döner.
-    """
     def get(self, request, lobby_id, format=None):
-        state = BATTLE_STATE.get(str(lobby_id), {
+        state = cache.get(f"battle_state_{lobby_id}", {
             "initiative_order": [],
             "placements": {},
             "available_characters": [],
@@ -337,6 +351,29 @@ class BattleStateView(APIView):
             "chat_log": []
         })
         return Response(state)
+
+# Yeni: Hareket güncelleme endpoint'i
+class MoveCharacterView(APIView):
+    authentication_classes = [CsrfExemptSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format=None):
+        lobby_id = request.data.get("lobby_id")
+        new_placements = request.data.get("placements")
+        if not lobby_id or new_placements is None:
+            return Response({"error": "lobby_id ve placements gereklidir."}, status=status.HTTP_400_BAD_REQUEST)
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
+        battle_state["placements"] = new_placements
+        cache.set(f"battle_state_{lobby_id}", battle_state)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"lobby_{lobby_id}",
+            {
+                'type': 'game_message',
+                'message': battle_state
+            }
+        )
+        return Response({"message": "Hareket güncellendi", "placements": new_placements})
 
 # Diğer view'ler...
 class LobbyViewSet(viewsets.ModelViewSet):

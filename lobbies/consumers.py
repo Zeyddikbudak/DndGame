@@ -1,3 +1,5 @@
+# lobbies/consumer.py
+
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
@@ -58,6 +60,17 @@ class LobbyConsumer(AsyncWebsocketConsumer):
                     "availableCharacters": data.get("availableCharacters")
                 }
             )
+        # Yeni eklenen battleEnd event'i:
+        elif event == "battleEnd":
+            print("[LobbyConsumer] battleEnd event received, broadcasting to group")
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "battle_end",
+                    "lobbyId": data.get("lobbyId"),
+                    "event": "battleEnd"
+                }
+            )
 
     async def game_started(self, event):
         await self.send(text_data=json.dumps({
@@ -87,3 +100,12 @@ class LobbyConsumer(AsyncWebsocketConsumer):
             "placements": event.get("placements"),
             "availableCharacters": event.get("availableCharacters")
         }))
+
+    # Yeni battle_end methodu: 
+    async def battle_end(self, event):
+        print("[LobbyConsumer] battle_end çağrıldı, event:", event)
+        await self.send(text_data=json.dumps({
+            "event": "battleEnd",
+            "lobbyId": event.get("lobbyId")
+        }))
+        print("[LobbyConsumer] battleEnd mesajı gönderildi")

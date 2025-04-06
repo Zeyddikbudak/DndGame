@@ -17,7 +17,7 @@ from rest_framework import status, permissions
 from game.models import Character
 
 # Global battle state (demo amaçlı; production için merkezi store kullanın)
-from game.views import BATTLE_STATE
+from django.core.cache import cache
 
 # CSRF kontrolünü devre dışı bırakmak için özel authentication sınıfı
 class CsrfExemptSessionAuthentication(SessionAuthentication):
@@ -58,12 +58,12 @@ class MagicMissileSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Magic Missile spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -102,12 +102,12 @@ class FireballSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Fireball spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -145,12 +145,12 @@ class LightningBoltSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Lightning Bolt spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -188,12 +188,12 @@ class HealingWordSpellView(APIView):
         target.hp += heal_amount  # iyileştirme
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Healing Word spellini kullandı ve {target.name}'i {heal_amount} HP iyileştirdi (Yeni HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -227,12 +227,12 @@ class ShieldSpellView(APIView):
         
         # Shield spell, örneğin caster'ın geçici AC'sini artırır.
         # Bu örnekte mekanik olarak AC güncellemesi yapmadan mesaj yayıyoruz.
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Shield spellini kullandı ve kısa süreliğine korunma sağladı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -265,12 +265,12 @@ class InvisibilitySpellView(APIView):
         
         # Gerçek uygulamada target'a görünmezlik durumu eklenir.
         # Bu örnekte, sadece mesaj yayınlıyoruz.
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Invisibility spellini kullandı; {target.name} artık görünmez."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -302,12 +302,12 @@ class SleepSpellView(APIView):
         target = get_object_or_404(Character, id=target_id)
         
         # Sleep spell, target'ı uyutma etkisi yaratır. Bu örnekte sadece mesaj gönderiyoruz.
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Sleep spellini kullandı; {target.name} uyudu."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -344,12 +344,12 @@ class AcidArrowSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Acid Arrow spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -383,12 +383,12 @@ class MagicWeaponSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Magic Weapon spellini kullandı; {target.name}'in silahı güçlendi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -420,12 +420,12 @@ class FlySpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Fly spellini kullandı; {target.name} artık uçabiliyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -463,12 +463,12 @@ class ConeOfColdSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Cone of Cold spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -503,12 +503,12 @@ class DominatePersonSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Dominate Person spellini kullandı; {target.name} artık kontrol altına alındı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -552,12 +552,12 @@ class DisintegrateSpellView(APIView):
             outcome = f"Kalan HP: {target.hp}"
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Disintegrate spellini kullandı ve {target.name}'e {damage} hasar verdi. {outcome}"
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -597,12 +597,12 @@ class EarthquakeSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Earthquake spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -637,12 +637,12 @@ class HoldPersonSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Hold Person spellini kullandı; {target.name} sersemledi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -679,12 +679,12 @@ class LightningStormSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Lightning Storm spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -719,12 +719,12 @@ class PolymorphSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Polymorph spellini kullandı; {target.name} farklı bir form kazandı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -761,12 +761,12 @@ class SunbeamSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Sunbeam spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -806,12 +806,12 @@ class WallOfFireSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Wall of Fire spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -843,12 +843,12 @@ class TimeStopSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Time Stop spellini kullandı; zaman birkaç tur için durdu."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -886,12 +886,12 @@ class BlightSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{attacker.name} Blight spellini kullandı ve {target.name}'e {damage} necrotic hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -926,12 +926,12 @@ class CharmPersonSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Charm Person spellini kullandı; {target.name} artık etkileniyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -964,12 +964,12 @@ class DarknessSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Darkness spellini kullandı; {target.name} ve çevresi karanlığa gömüldü."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1002,12 +1002,12 @@ class HasteSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Haste spellini kullandı; {target.name} şimdi daha hızlı hareket edebiliyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1040,12 +1040,12 @@ class SlowSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Slow spellini kullandı; {target.name} şimdi yavaşlıyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1076,12 +1076,12 @@ class CounterspellSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Counterspell spellini kullandı; rakibin büyü girişimi engellendi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1112,12 +1112,12 @@ class FireShieldSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Fire Shield spellini kullandı; koruyucu ateş etkisi devreye girdi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1156,14 +1156,14 @@ class IceStormSpellView(APIView):
         target.hp = max(0, target.hp - total_damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = (f"{attacker.name} Ice Storm spellini kullandı ve {target.name}'e "
                    f"{total_damage} hasar verdi (Bludgeoning: {damage_bludgeoning}, Cold: {damage_cold}) "
                    f"(Kalan HP: {target.hp}).")
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1203,12 +1203,12 @@ class PrismaticSpraySpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{attacker.name} Prismatic Spray spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1243,12 +1243,12 @@ class DispelMagicSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message = f"{caster.name} Dispel Magic spellini kullandı; {target.name} üzerindeki büyüsel etkiler kaldırıldı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1283,12 +1283,12 @@ class AnimateDeadSpellView(APIView):
         # Burada target normalde ölü beden olmalı; biz yine Character kullanıyoruz.
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Animate Dead spellini kullandı; {target.name} zombiye dönüştü."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1321,12 +1321,12 @@ class BanishmentSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Banishment spellini kullandı; {target.name} geçici olarak başka bir düzleme gönderildi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1363,12 +1363,12 @@ class CircleOfDeathSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Circle of Death spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1406,12 +1406,12 @@ class CloudkillSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Cloudkill spellini kullandı ve {target.name}'e {damage} poison hasarı verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1446,12 +1446,12 @@ class ConfusionSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Confusion spellini kullandı; {target.name} şimdi kontrol etmekte zorlanıyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1489,12 +1489,12 @@ class DelayedBlastFireballSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Delayed Blast Fireball spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1529,12 +1529,12 @@ class DimensionDoorSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         
         # Burada gerçek konum güncellemesi yapılabilir; örneğimizde sadece mesaj yayınlanır.
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Dimension Door spellini kullandı ve {destination} konumuna taşındı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1567,12 +1567,12 @@ class DominateMonsterSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Dominate Monster spellini kullandı; {target.name} artık canavar kontrolü altında."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1605,12 +1605,12 @@ class FeeblemindSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Feeblemind spellini kullandı; {target.name}'in zihinsel yetenekleri köreltilmeye başladı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1651,11 +1651,11 @@ class TrueResurrectionSpellView(APIView):
             target.save()
             message = f"{caster.name} True Resurrection spellini kullandı; {target.name} hayata döndürüldü (HP: {target.hp})."
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1688,12 +1688,12 @@ class ForcecageSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Forcecage spellini kullandı; {target.name} görünmez bir kafese hapsedildi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1723,12 +1723,12 @@ class TelekinesisSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Telekinesis spellini kullandı; {target.name} {destination} konumuna taşındı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1757,12 +1757,12 @@ class EarthbindSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Earthbind spellini kullandı; {target.name} hareket kabiliyeti kısıtlandı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1791,12 +1791,12 @@ class MindBlankSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Mind Blank spellini kullandı; {target.name} artık zihinsel saldırılardan korunuyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1825,12 +1825,12 @@ class MazeSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Maze spellini kullandı; {target.name} labirente gönderildi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1866,12 +1866,12 @@ class PowerWordKillSpellView(APIView):
             outcome = f"{target.name} direndi."
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Power Word Kill spellini kullandı; {outcome}"
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1909,12 +1909,12 @@ class FingerOfDeathSpellView(APIView):
             outcome = f"Kalan HP: {target.hp}"
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{attacker.name} Finger of Death spellini kullandı ve {target.name}'e {damage} hasar verdi. {outcome}"
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1947,12 +1947,12 @@ class GlobeOfInvulnerabilitySpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Globe of Invulnerability spellini kullandı; {duration} boyunca büyü etkilerine karşı korunuyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -1981,12 +1981,12 @@ class OttosIrresistibleDanceSpellView(APIView):
         caster = get_object_or_404(Character, id=caster_id)
         target = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Otto's Irresistible Dance spellini kullandı; {target.name} kontrol edilemez şekilde dans ediyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2015,12 +2015,12 @@ class SymbolSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log = battle_state.get("chat_log", [])
         message = f"{caster.name} Symbol spellini kullandı; {area} alanında {effect} etkisi tetiklendi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2053,12 +2053,12 @@ class MassHealSpellView(APIView):
         target.hp += heal
         target.save()
 
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Mass Heal spellini kullandı ve {target.name}'in HP'sini {heal} iyileştirdi (Yeni HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2089,12 +2089,12 @@ class ChainLightningSpellView(APIView):
         target.hp = max(0, target.hp - damage)
         target.save()
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Chain Lightning spellini kullandı ve {target.name}'e {damage} hasar verdi (Kalan HP: {target.hp})."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2121,12 +2121,12 @@ class ReverseGravitySpellView(APIView):
             return Response({"error": "attacker_id ve lobby_id gereklidir."}, status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Reverse Gravity spellini kullandı; {area} içindeki hedeflerin hareketi tersine çevrildi."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2155,12 +2155,12 @@ class FleshToStoneSpellView(APIView):
         caster  = get_object_or_404(Character, id=caster_id)
         target  = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Flesh to Stone spellini kullandı; {target.name} yavaş yavaş taşa dönüşüyor."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2188,12 +2188,12 @@ class AnimateObjectsSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Animate Objects spellini kullandı; {object_description} canlandı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2221,12 +2221,12 @@ class AntimagicFieldSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Antimagic Field spellini kullandı; {area} içindeki büyü etkileri devre dışı bırakıldı."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2256,12 +2256,12 @@ class EyebiteSpellView(APIView):
         caster  = get_object_or_404(Character, id=caster_id)
         target  = get_object_or_404(Character, id=target_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Eyebite spellini kullandı; {target.name} {effect} etkisi altında."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2289,12 +2289,12 @@ class ControlWeatherSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Control Weather spellini kullandı; hava {new_weather} oldu."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2322,12 +2322,12 @@ class HolyAuraSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Holy Aura spellini kullandı; müttefikler {duration} boyunca ilahi korumaya sahip."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -2355,12 +2355,12 @@ class WishSpellView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
         caster = get_object_or_404(Character, id=caster_id)
         
-        battle_state = BATTLE_STATE.get(str(lobby_id), {})
+        battle_state = cache.get(f"battle_state_{lobby_id}", {})
         chat_log     = battle_state.get("chat_log", [])
         message      = f"{caster.name} Wish spellini kullandı; {wish_text}."
         chat_log.append(message)
         battle_state["chat_log"] = chat_log
-        BATTLE_STATE[str(lobby_id)] = battle_state
+        cache.set(f"battle_state_{lobby_id}", battle_state)
 
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
